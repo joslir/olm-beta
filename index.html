@@ -9,7 +9,7 @@
 <input id="pw" type="password" autocomplete="current-password" autofocus/><button id="b" type="submit">Open</button><div class="err" id="e"></div></form></div>
 <div id="root"></div>
 <script>
-const META = {"salt":"sfxf82+VyYObezsY5wYJRg==","iv":"cdioo7fu0ORKYA1k","iter":600000};
+const META = {"salt":"/sRRvgn4oze9hrhhH2K4Gw==","iv":"GN1bG2JDuC4TcTvW","iter":600000};
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 async function unlock(pw) {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
