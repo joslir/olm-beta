@@ -12,7 +12,7 @@
 const META = {};
 const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 async function unlock(pw) {
-  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw.trim().toLowerCase()), 'PBKDF2', false, ['deriveKey']);
   const raw = new Uint8Array(await (await fetch('./bundle.enc?t=' + Date.now(), {cache:'no-store'})).arrayBuffer());
   if (new TextDecoder().decode(raw.slice(0, 4)) !== 'OLM1') throw new Error('bad bundle');
   const salt = raw.slice(4, 20), iv = raw.slice(20, 32), iter = new DataView(raw.buffer).getUint32(32);
