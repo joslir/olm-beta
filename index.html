@@ -6,7 +6,7 @@
 #gate h1{font-size:18px;margin:0 0 6px}#gate p{margin:0 0 16px;color:#aab}#gate input{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:1px solid #556;background:#1e2229;color:#fff;font-size:15px}
 #gate button{margin-top:12px;width:100%;padding:9px;border:0;border-radius:6px;background:#3d7bd9;color:#fff;font-size:15px;cursor:pointer}#gate .err{color:#ff8a80;min-height:18px;margin-top:8px;font-size:13px}</style></head>
 <body><div id="gate"><form id="f"><h1>One-line Maker beta</h1><p>Enter the access password.</p>
-<input id="pw" type="password" autocomplete="current-password" autofocus/><button id="b" type="submit">Open</button><div class="err" id="e"></div></form></div>
+<div style="position:relative"><input id="pw" type="password" autocomplete="current-password" autofocus style="padding-right:40px"/><button type="button" id="eye" aria-label="Show password" title="Show password" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;margin:0;padding:4px;background:transparent;color:#aab;font-size:16px">&#128065;</button></div><button id="b" type="submit">Open</button><div class="err" id="e"></div></form></div>
 <div id="root"></div>
 <script>
 const META = {"salt":"/sRRvgn4oze9hrhhH2K4Gw==","iv":"GN1bG2JDuC4TcTvW","iter":600000};
@@ -40,6 +40,7 @@ async function go(pw, quiet) {
   try { const app = await unlock(pw); sessionStorage.setItem('olm-beta', pw); launch(app); }
   catch { if (!quiet) e.textContent = 'Wrong password.'; sessionStorage.removeItem('olm-beta'); b.disabled = false; b.textContent = 'Open'; }
 }
+document.getElementById('eye').addEventListener('click', () => { const i = document.getElementById('pw'), e = document.getElementById('eye'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; e.style.color = show ? '#fff' : '#aab'; e.title = e.ariaLabel = show ? 'Hide password' : 'Show password'; i.focus(); });
 document.getElementById('f').addEventListener('submit', ev => { ev.preventDefault(); go(document.getElementById('pw').value); });
 const saved = sessionStorage.getItem('olm-beta'); if (saved) go(saved, true);
 </script></body></html>
