@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<meta name="robots" content="noindex, nofollow"/><link rel="icon" type="image/svg+xml" href="./favicon.svg"/><title>One-line Maker</title>
+<meta http-equiv="Cache-Control" content="no-cache"/><meta name="robots" content="noindex, nofollow"/><link rel="icon" type="image/svg+xml" href="./favicon.svg"/><title>One-line Maker</title>
 <style>#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1e2229;font:15px system-ui,sans-serif;color:#e6e6e6}
 #gate form{background:#2a2f38;padding:28px 32px;border-radius:10px;min-width:300px;box-shadow:0 8px 30px #0006}
 #gate h1{font-size:18px;margin:0 0 6px}#gate p{margin:0 0 16px;color:#aab}#gate input{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:1px solid #556;background:#1e2229;color:#fff;font-size:15px}
 #gate button{margin-top:12px;width:100%;padding:9px;border:0;border-radius:6px;background:#3d7bd9;color:#fff;font-size:15px;cursor:pointer}#gate .err{color:#ff8a80;min-height:18px;margin-top:8px;font-size:13px}</style></head>
 <body><div id="gate"><form id="f"><h1>One-line Maker beta</h1><p>Enter the access password.</p>
-<div style="position:relative"><input id="pw" type="password" autocomplete="current-password" autofocus style="padding-right:40px"/><button type="button" id="eye" aria-label="Show password" title="Show password" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;margin:0;padding:4px;background:transparent;color:#aab;font-size:16px">&#128065;</button></div><button id="b" type="submit">Open</button><div class="err" id="e"></div></form></div>
+<div style="position:relative"><input id="pw" type="password" autocomplete="current-password" autofocus style="padding-right:40px"/><button type="button" id="eye" aria-label="Show password" title="Show password" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:30px;margin:0;padding:0;display:flex;align-items:center;justify-content:center;background:transparent;color:#aab;cursor:pointer"><svg id="eyeOpen" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg><svg id="eyeOff" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg></button></div><button id="b" type="submit">Open</button><div class="err" id="e"></div></form></div>
 <div id="root"></div>
 <script>
 const META = {"salt":"/sRRvgn4oze9hrhhH2K4Gw==","iv":"GN1bG2JDuC4TcTvW","iter":600000};
@@ -34,13 +34,40 @@ function launch(app) {
   document.body.appendChild(s);
   document.getElementById('gate').remove();
 }
+const MAX_TRIES = 2, LOCK_MS = 5 * 60 * 1000;
+const lockState = () => JSON.parse(localStorage.getItem('olm-beta-lock') || '{"fails":0,"until":0}');
+const setLock = s => localStorage.setItem('olm-beta-lock', JSON.stringify(s));
+let lockTimer;
+function showLock() {
+  const e = document.getElementById('e'), b = document.getElementById('b'), i = document.getElementById('pw');
+  const s = lockState(), left = s.until - Date.now();
+  clearTimeout(lockTimer);
+  if (left > 0) {
+    b.disabled = true; i.disabled = true; b.textContent = 'Locked';
+    const m = Math.floor(left / 60000), sec = Math.ceil((left % 60000) / 1000);
+    e.textContent = 'Too many wrong tries. Access is locked. Try again in ' + (m ? m + ' min ' : '') + sec + ' s.';
+    lockTimer = setTimeout(showLock, 1000);
+    return true;
+  }
+  if (s.until) setLock({fails: 0, until: 0});
+  b.disabled = false; i.disabled = false; b.textContent = 'Open';
+  if (e.textContent.startsWith('Too many')) e.textContent = '';
+  return false;
+}
 async function go(pw, quiet) {
+  if (showLock()) return;
   const e = document.getElementById('e'), b = document.getElementById('b');
   b.disabled = true; e.textContent = ''; b.textContent = 'Opening…';
-  try { const app = await unlock(pw); sessionStorage.setItem('olm-beta', pw); launch(app); }
-  catch { if (!quiet) e.textContent = 'Wrong password.'; sessionStorage.removeItem('olm-beta'); b.disabled = false; b.textContent = 'Open'; }
+  try { const app = await unlock(pw); sessionStorage.setItem('olm-beta', pw); setLock({fails: 0, until: 0}); launch(app); }
+  catch {
+    sessionStorage.removeItem('olm-beta'); b.disabled = false; b.textContent = 'Open';
+    if (quiet) return;
+    const s = lockState(); s.fails += 1;
+    if (s.fails >= MAX_TRIES) { s.until = Date.now() + LOCK_MS; s.fails = 0; setLock(s); showLock(); }
+    else { setLock(s); e.textContent = 'Wrong password. ' + (MAX_TRIES - s.fails) + ' try left.'; }
+  }
 }
-document.getElementById('eye').addEventListener('click', () => { const i = document.getElementById('pw'), e = document.getElementById('eye'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; e.style.color = show ? '#fff' : '#aab'; e.title = e.ariaLabel = show ? 'Hide password' : 'Show password'; i.focus(); });
+document.getElementById('eye').addEventListener('click', () => { const i = document.getElementById('pw'), e = document.getElementById('eye'); const show = i.type === 'password'; i.type = show ? 'text' : 'password'; document.getElementById('eyeOpen').style.display = show ? 'none' : ''; document.getElementById('eyeOff').style.display = show ? '' : 'none'; e.style.color = show ? '#fff' : '#aab'; e.title = e.ariaLabel = show ? 'Hide password' : 'Show password'; i.focus(); });
 document.getElementById('f').addEventListener('submit', ev => { ev.preventDefault(); go(document.getElementById('pw').value); });
-const saved = sessionStorage.getItem('olm-beta'); if (saved) go(saved, true);
+const saved = sessionStorage.getItem('olm-beta'); if (!showLock() && saved) go(saved, true);
 </script></body></html>
