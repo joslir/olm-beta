@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="robots" content="noindex, nofollow"/><link rel="icon" type="image/svg+xml" href="./favicon.svg"/><title>One-line Maker</title>
+<style>#gate{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1e2229;font:15px system-ui,sans-serif;color:#e6e6e6}
+#gate form{background:#2a2f38;padding:28px 32px;border-radius:10px;min-width:300px;box-shadow:0 8px 30px #0006}
+#gate h1{font-size:18px;margin:0 0 6px}#gate p{margin:0 0 16px;color:#aab}#gate input{width:100%;box-sizing:border-box;padding:9px 10px;border-radius:6px;border:1px solid #556;background:#1e2229;color:#fff;font-size:15px}
+#gate button{margin-top:12px;width:100%;padding:9px;border:0;border-radius:6px;background:#3d7bd9;color:#fff;font-size:15px;cursor:pointer}#gate .err{color:#ff8a80;min-height:18px;margin-top:8px;font-size:13px}</style></head>
+<body><div id="gate"><form id="f"><h1>One-line Maker beta</h1><p>Enter the access password.</p>
+<input id="pw" type="password" autocomplete="current-password" autofocus/><button id="b" type="submit">Open</button><div class="err" id="e"></div></form></div>
+<div id="root"></div>
+<script>
+const META = {"salt":"sfxf82+VyYObezsY5wYJRg==","iv":"cdioo7fu0ORKYA1k","iter":600000};
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlock(pw) {
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({name:'PBKDF2', salt:b64(META.salt), iterations:META.iter, hash:'SHA-256'}, base, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  const enc = await (await fetch('./bundle.enc', {cache:'no-cache'})).arrayBuffer();
+  const gz = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64(META.iv)}, key, enc);
+  const text = await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  return JSON.parse(text);
+}
+function launch(app) {
+  const realFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url = typeof input === 'string' ? input : input.url;
+    const m = /library\/([^?#]+)/.exec(url);
+    if (m && app.files[decodeURIComponent(m[1])] !== undefined)
+      return Promise.resolve(new Response(app.files[decodeURIComponent(m[1])], {headers:{'Content-Type':'application/json'}}));
+    return realFetch(input, init);
+  };
+  const st = document.createElement('style'); st.textContent = app.css; document.head.appendChild(st);
+  const s = document.createElement('script'); s.type = 'module';
+  s.src = URL.createObjectURL(new Blob([app.js], {type:'text/javascript'}));
+  document.body.appendChild(s);
+  document.getElementById('gate').remove();
+}
+async function go(pw, quiet) {
+  const e = document.getElementById('e'), b = document.getElementById('b');
+  b.disabled = true; e.textContent = ''; b.textContent = 'Opening…';
+  try { const app = await unlock(pw); sessionStorage.setItem('olm-beta', pw); launch(app); }
+  catch { if (!quiet) e.textContent = 'Wrong password.'; sessionStorage.removeItem('olm-beta'); b.disabled = false; b.textContent = 'Open'; }
+}
+document.getElementById('f').addEventListener('submit', ev => { ev.preventDefault(); go(document.getElementById('pw').value); });
+const saved = sessionStorage.getItem('olm-beta'); if (saved) go(saved, true);
+</script></body></html>
